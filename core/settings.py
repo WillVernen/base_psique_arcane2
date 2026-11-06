@@ -28,7 +28,11 @@ DEBUG = config('DEBUG', cast=bool)
 
 ALLOWED_HOSTS = ['*']
 
-CSRF_TRUSTED_ORIGINS = ['https://*.railway.app',] 
+CSRF_TRUSTED_ORIGINS = ['https://*.railway.app',]
+
+LOGIN_URL = '/usuarios/login/'
+LOGIN_REDIRECT_URL = '/usuarios/pacientes/'
+ 
 
 # Application definition
 

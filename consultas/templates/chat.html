@@ -8,7 +8,7 @@
                     <div class="flex items-center gap-x-6">
                         <a href="{% url 'consultas' paciente.id  %}"><img src="{{ paciente.foto.url }}" alt="" class="w-10 rounded-md"></a>
                         <h1>
-                            <div class="mt-1 text-base font-semibold text-gray-900">Ana</div>
+                            <div class="mt-1 text-base font-semibold text-gray-900">{{ paciente.nome }}</div>
                         </h1>
                     </div>
                 </div>

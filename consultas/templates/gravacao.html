@@ -6,19 +6,14 @@
     <header class="absolute inset-x-0 top-0 z-50 flex h-16 border-b border-gray-900/10">
         <div class="mx-auto flex w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
             <div class="flex flex-1 items-center gap-x-6">
-                <img src="{% static 'logo.png' %}" alt="PsiQuê" class="h-12 w-auto" />
+                <a href="{% url 'pacientes' %}"><img src="{% static 'logo.png' %}" alt="PsiQuê" class="h-12 w-auto" /></a>
             </div>
             <nav class="hidden md:flex md:gap-x-11 md:text-sm/6 md:font-semibold md:text-gray-700">
-                <a href="#">Consultas</a>
-                <a href="#">Usuários</a>
+                <a href="{% url 'pacientes' %}">Pacientes</a>
+                <a href="{% url 'consultas' gravacao.paciente.id %}">Consultas</a>
             </nav>
             <div class="flex flex-1 items-center justify-end gap-x-8">
-                <a href="#" class="-m-1.5 p-1.5">
-                    <span class="sr-only">Seu perfil</span>
-                    <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                         alt=""
-                         class="size-8 rounded-full bg-gray-100 outline -outline-offset-1 outline-black/5" />
-                </a>
+                <a href="{% url 'logout' %}" class="text-sm font-semibold text-gray-700 hover:text-gray-900">Sair</a>
             </div>
         </div>
     </header>
@@ -29,12 +24,20 @@
                 <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-6 px-4 sm:flex-nowrap sm:px-6 lg:px-8">
                     <a href="{% url 'consultas' gravacao.paciente.id  %}"><img class="object-cover w-full rounded-t-lg h-18 md:h-auto md:w-18 md:rounded-none md:rounded-s-lg"
                              src="{{ gravacao.paciente.foto.url }}"
-                             alt=""></a>
-                    <h1 class="text-base/7 font-semibold text-gray-900">Gravação 1</h1>
-                    <a href="#"
-                       class="ml-auto flex items-center gap-x-1 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                        - Excluir
-                    </a>
+                             alt="{{ gravacao.paciente.nome }}"></a>
+                    <h1 class="text-base/7 font-semibold text-gray-900">
+                        {{ gravacao.paciente.nome }} — {{ gravacao.data|date:"d/m/Y H:i" }}
+                    </h1>
+                    <form action="{% url 'excluir_gravacao' gravacao.id %}"
+                          method="POST"
+                          class="ml-auto"
+                          onsubmit="return confirm('Excluir esta gravação? Esta ação não pode ser desfeita.');">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="flex items-center gap-x-1 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                            Excluir
+                        </button>
+                    </form>
                 </div>
             </header>
             <!-- Stats -->
@@ -55,13 +58,15 @@
                     <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t border-gray-900/5 px-4 py-10 sm:px-6 lg:border-t-0 lg:border-l xl:px-8">
                         <dt class="text-sm/6 font-medium text-gray-500">Humor médio</dt>
                         <dd class="w-full flex-none text-3xl/10 font-medium tracking-tight text-gray-900">
-                            3 <span class="text-sm text-gray-400">de 5</span>
+                            {% if humor_medio %}{{ humor_medio }}{% else %}—{% endif %}
+                            <span class="text-sm text-gray-400">de 5</span>
                         </dd>
                     </div>
                     <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t border-gray-900/5 px-4 py-10 sm:border-l sm:px-6 lg:border-t-0 xl:px-8">
                         <dt class="text-sm/6 font-medium text-gray-500">Humor da sessão</dt>
                         <dd class="w-full flex-none text-3xl/10 font-medium tracking-tight text-gray-900">
-                            {{gravacao.humor}} <span class="text-sm text-gray-400">de 5</span>
+                            {% if gravacao.humor %}{{ gravacao.humor }}{% else %}—{% endif %}
+                            <span class="text-sm text-gray-400">de 5</span>
                         </dd>
                     </div>
                 </dl>
@@ -83,7 +88,11 @@
                         <div class="mx-auto mt-6 max-w-2xl lg:mx-0 lg:max-w-none">
                             <div class="overflow-hidden rounded-xl outline outline-gray-200 ">
                                 <div class="flex items-center gap-x-4 border-b border-gray-900/5 bg-gray-50 p-6">
-                                    {{gravacao.transcricao}}
+                                    {% if gravacao.transcricao %}
+                                        {{ gravacao.transcricao }}
+                                    {% else %}
+                                        <span class="text-gray-400">Transcrição ainda não disponível.</span>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -95,11 +104,8 @@
                 <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
                     <div class="flex items-center justify-between">
                         <h2 class="text-base/7 font-semibold text-gray-900">Tarefas</h2>
-                        <a href="#"
-                           class="text-sm/6 font-semibold text-indigo-600 hover:text-indigo-500">Ver todas</a>
                     </div>
                     <ul role="list" class="divide-y divide-gray-100">
-                        
                         {% for tarefa in gravacao.resumo %}
                             <li class="relative flex items-center space-x-4 py-4">
                                 <div class="min-w-0 flex-auto">
@@ -108,7 +114,7 @@
                                             <div class="size-2 rounded-full bg-current"></div>
                                         </div>
                                         <h2 class="min-w-0 text-sm/6 font-semibold text-gray-900">
-                                            <a href="#" class="flex gap-x-2">{{ tarefa }}</a>
+                                            <span class="flex gap-x-2">{{ tarefa }}</span>
                                         </h2>
                                     </div>
                                 </div>
@@ -116,8 +122,9 @@
                                     Resumo
                                 </div>
                             </li>
+                        {% empty %}
+                            <li class="py-4 text-sm text-gray-500">Nenhuma tarefa/lembrete ainda.</li>
                         {% endfor %}
-                        
                     </ul>
                 </div>
                 <a href="{% url 'send_message' gravacao.id %}" class="ml-auto cursor-pointer items-center gap-x-1 rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-green-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">

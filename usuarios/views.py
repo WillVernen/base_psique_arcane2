@@ -4,6 +4,8 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.contrib import auth
+from django.contrib.auth.decorators import login_required
+from django.db.models import Count
 from .models import Pacientes
 
 def cadastro(request):
@@ -35,6 +37,8 @@ def cadastro(request):
         return redirect('login')
     
 def login(request):
+    if request.user.is_authenticated:
+        return redirect('pacientes')
     if request.method == 'GET':
         return render(request, 'login.html')
     elif request.method == 'POST':
@@ -45,24 +49,38 @@ def login(request):
 
         if user:
             auth.login(request, user)
-            return redirect('pacientes')
+            next_url = request.GET.get('next') or 'pacientes'
+            return redirect(next_url)
         
         messages.add_message(request, constants.ERROR, 'Username ou senha inválidos.')
         return redirect('login')
-    
+
+
+def logout(request):
+    auth.logout(request)
+    return redirect('login')
+
+
+@login_required
 def pacientes(request):
     if request.method == "GET":
-        pacientes = Pacientes.objects.all()
+        pacientes = (
+            Pacientes.objects.filter(ativo=True)
+            .annotate(num_gravacoes=Count('gravacoes'))
+            .order_by('nome')
+        )
         return render(request, 'pacientes.html', {'pacientes': pacientes})
     elif request.method == "POST":
         foto = request.FILES.get('foto')
         nome = request.POST.get('nome')
         descricao = request.POST.get('descricao')
+        telefone = request.POST.get('telefone') or None
 
         paciente = Pacientes(
             foto=foto,
             nome=nome,
             descricao=descricao,
+            telefone=telefone,
         )
 
         paciente.save()
