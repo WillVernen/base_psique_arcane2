@@ -1,7 +1,10 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+from django.db.models import Avg
 from usuarios.models import Pacientes
-from .models import Gravacoes
+from .models import Gravacoes, DataTreinamento
 from django.views.decorators.csrf import csrf_exempt
 from django.http import StreamingHttpResponse
 from .agents import RAGContext
@@ -9,15 +12,25 @@ from django.http import JsonResponse
 from .models import Pergunta
 from .wrapper_evolutionapi import SendMessage
 from django.contrib.humanize.templatetags.humanize import naturaltime
+import json
 
+
+@login_required
 def consultas(request, id):
     paciente = get_object_or_404(Pacientes, id=id)
     if request.method == 'GET':
         gravacoes = Gravacoes.objects.filter(paciente__id=id).order_by('data')
-        datas = [naturaltime(item['data']) for item in gravacoes.values('data')]
+        datas = [str(naturaltime(item['data'])) for item in gravacoes.values('data')]
         humores = [item['humor'] for item in gravacoes.values('humor')]
+        humor_medio = gravacoes.exclude(humor=0).aggregate(media=Avg('humor'))['media']
      
-        return render(request, 'consultas.html', {'paciente': paciente, 'gravacoes': gravacoes, 'datas': datas, 'humores': humores})
+        return render(request, 'consultas.html', {
+            'paciente': paciente,
+            'gravacoes': gravacoes,
+            'datas': json.dumps(datas),
+            'humores': json.dumps(humores),
+            'humor_medio': round(humor_medio, 1) if humor_medio is not None else None,
+        })
     elif request.method == 'POST':
         gravacao = request.FILES.get('gravacao')
         data = request.POST.get('data')
@@ -33,11 +46,34 @@ def consultas(request, id):
 
         return redirect(reverse('consultas', kwargs={'id': id}))
 
+
+@login_required
 def gravacao(request, id):
     gravacao = get_object_or_404(Gravacoes, id=id)
-    return render(request, 'gravacao.html', {'gravacao': gravacao})
+    humor_medio = (
+        Gravacoes.objects.filter(paciente=gravacao.paciente)
+        .exclude(humor=0)
+        .aggregate(media=Avg('humor'))['media']
+    )
+    return render(request, 'gravacao.html', {
+        'gravacao': gravacao,
+        'humor_medio': round(humor_medio, 1) if humor_medio is not None else None,
+    })
 
 
+@login_required
+@require_POST
+def excluir_gravacao(request, id):
+    gravacao = get_object_or_404(Gravacoes, id=id)
+    paciente_id = gravacao.paciente_id
+    DataTreinamento.objects.filter(recording=gravacao).delete()
+    if gravacao.video:
+        gravacao.video.delete(save=False)
+    gravacao.delete()
+    return redirect(reverse('consultas', kwargs={'id': paciente_id}))
+
+
+@login_required
 @csrf_exempt
 def chat(request, id):
     if request.method == 'GET':
@@ -51,11 +87,15 @@ def chat(request, id):
         pergunta.save()
         return JsonResponse({'id': pergunta.id})
 
+
+@login_required
 @csrf_exempt
 def stream_response(request, id):
     id_pergunta = request.POST.get('id_pergunta')
     return StreamingHttpResponse(RAGContext().retrieval(id_pergunta, id))
 
+
+@login_required
 def ver_referencias(request, id):
     pergunta = get_object_or_404(Pergunta, id=id)
     data_treinamento = pergunta.data_treinamento.all()
@@ -63,6 +103,8 @@ def ver_referencias(request, id):
 
     return render(request, 'ver_referencia.html', {'pergunta': pergunta, 'data_treinamento': data_treinamento, 'gravacoes': gravacoes})
 
+
+@login_required
 def send_message(request, id):
     gravacao = get_object_or_404(Gravacoes, id=id)
     for g in gravacao.resumo:
