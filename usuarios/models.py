@@ -1,7 +1,13 @@
+from django.conf import settings
 from django.db import models
 
-# Create your models here.
+
 class Pacientes(models.Model):
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='pacientes',
+    )
     nome = models.CharField(max_length=64)
     descricao = models.TextField()
     foto = models.ImageField(upload_to='fotos')

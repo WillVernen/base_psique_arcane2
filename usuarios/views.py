@@ -6,7 +6,12 @@ from django.contrib.auth import authenticate
 from django.contrib import auth
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
+from django.http import FileResponse, Http404
+from django.conf import settings
+from pathlib import Path
 from .models import Pacientes
+from consultas.models import Gravacoes
+
 
 def cadastro(request):
     if request.method == 'GET':
@@ -65,7 +70,7 @@ def logout(request):
 def pacientes(request):
     if request.method == "GET":
         pacientes = (
-            Pacientes.objects.filter(ativo=True)
+            Pacientes.objects.filter(ativo=True, usuario=request.user)
             .annotate(num_gravacoes=Count('gravacoes'))
             .order_by('nome')
         )
@@ -77,6 +82,7 @@ def pacientes(request):
         telefone = request.POST.get('telefone') or None
 
         paciente = Pacientes(
+            usuario=request.user,
             foto=foto,
             nome=nome,
             descricao=descricao,
@@ -86,3 +92,42 @@ def pacientes(request):
         paciente.save()
 
         return redirect('pacientes')
+
+
+@login_required
+def protected_media(request, path):
+    """Serve media files only to the owning authenticated user."""
+    # Prevent path traversal
+    if '..' in path or path.startswith('/'):
+        raise Http404()
+
+    file_path = Path(settings.MEDIA_ROOT) / path
+    try:
+        file_path = file_path.resolve(strict=True)
+    except FileNotFoundError:
+        raise Http404()
+
+    media_root = Path(settings.MEDIA_ROOT).resolve()
+    if not str(file_path).startswith(str(media_root)):
+        raise Http404()
+
+    # Normalize to the relative path stored on FileFields
+    relative = path.replace('\\', '/')
+
+    if relative.startswith('fotos/'):
+        owned = Pacientes.objects.filter(
+            usuario=request.user,
+            foto=relative,
+        ).exists()
+    elif relative.startswith('gravacoes/'):
+        owned = Gravacoes.objects.filter(
+            paciente__usuario=request.user,
+            video=relative,
+        ).exists()
+    else:
+        raise Http404()
+
+    if not owned:
+        raise Http404()
+
+    return FileResponse(open(file_path, 'rb'))

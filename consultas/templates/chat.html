@@ -38,6 +38,7 @@
         <div class="px-4 md:px-0">
             <div class="mx-auto bg-slate-50 mt-6 max-w-4xl px-4 py-4 sm:px-6 lg:px-8 border border-slate-200/60 rounded-md">
                 <form id="form-pergunta">
+                    {% csrf_token %}
                     <div class="flex items-center gap-4">
                         <input type="text"
                                name="pergunta"
@@ -55,13 +56,30 @@
     </main>
 
     <script>
+      function getCookie(name) {
+          const value = `; ${document.cookie}`;
+          const parts = value.split(`; ${name}=`);
+          if (parts.length === 2) return parts.pop().split(';').shift();
+          return null;
+      }
+
+      function getCsrfToken() {
+          const input = document.querySelector('#form-pergunta [name=csrfmiddlewaretoken]');
+          return (input && input.value) || getCookie('csrftoken') || '';
+      }
+
       document.getElementById('form-pergunta').addEventListener('submit', async function(event){
           event.preventDefault();
           const pergunta = document.getElementById('pergunta').value
+          const csrfToken = getCsrfToken();
           const formData = new FormData();
           formData.append('pergunta', pergunta)
+          formData.append('csrfmiddlewaretoken', csrfToken)
           const response = await fetch("{% url 'chat' paciente.id %}", {
               method: "POST",
+              headers: {
+                  "X-CSRFToken": csrfToken,
+              },
               body: formData
           })
           const data = await response.json()
@@ -107,8 +125,12 @@
               method: "POST",
               headers: {
                    "Content-Type": "application/x-www-form-urlencoded",
+                   "X-CSRFToken": csrfToken,
               },
-              body: new URLSearchParams({id_pergunta: perguntaId})
+              body: new URLSearchParams({
+                  id_pergunta: perguntaId,
+                  csrfmiddlewaretoken: csrfToken,
+              })
           });
           
           const reader = streamResponse.body.getReader()
